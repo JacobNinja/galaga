@@ -47,3 +47,4 @@
   (let [height (-> (/ (.-height canvas) cell-size) .toFixed int)
         width (-> (/ (.-width canvas) cell-size) .toFixed int)]
     {:dimensions [height width]}))
+

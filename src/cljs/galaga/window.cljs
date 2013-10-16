@@ -10,6 +10,7 @@
 (def empty-cell-color "#eee")
 (def player-cell-color "666")
 (def border-color "#cdcdcd")
+(def projectile-cell-color "#aaa")
 
 (defn- fill-square [x y color]
   (set! (.-fillStyle context) color)
@@ -37,7 +38,9 @@
      (let [env (<! draw)]
        (fill-empty env)
        (doseq [[x y] (env :player)]
-         (fill-square x y player-cell-color)))
+         (fill-square x y player-cell-color))
+       (doseq [[x y] (env :projectiles)]
+         (fill-square x y projectile-cell-color)))
      (recur))))
 
 (defn init [draw-chan]
@@ -47,4 +50,3 @@
   (let [height (-> (/ (.-height canvas) cell-size) .toFixed int)
         width (-> (/ (.-width canvas) cell-size) .toFixed int)]
     {:dimensions [height width]}))
-

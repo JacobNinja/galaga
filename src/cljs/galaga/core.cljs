@@ -32,6 +32,16 @@
                               :else [x y])
                              (rest (env :player))))))
 
+(defn- fire [keyboard-input env]
+  (if (= keyboard-input key-codes/SPACE)
+    (assoc env :projectiles (cons (first (env :player)) (env :projectiles)))
+    env))
+
+(defn- adjust-projectile-coords [env]
+  (assoc env :projectiles 
+         (filter (fn [[x y]] (>= y 0)) 
+                 (map (fn [[x y]] [x (dec y)]) (env :projectiles)))))
+
 (defn init-env [env]
   (let [[height width] (env :dimensions)]
     (assoc env :player 
@@ -43,8 +53,10 @@
    (loop [env (assoc env :direction (<! keyboard-chan))]
      (let [[keyboard-check _] (alts! [keyboard-chan (timeout 1)])
            next-env (->> env
+                         (fire keyboard-check)
                          (adjust-direction keyboard-check)
-                         adjust-player-coords)]
+                         adjust-player-coords
+                         adjust-projectile-coords)]
        (>! draw next-env)
        (<! (timeout 500))
        (recur next-env)))))
@@ -54,4 +66,3 @@
         env (galaga.window/init draw)]
     (keyboard-listen)
     (game-loop draw (init-env env))))
-;

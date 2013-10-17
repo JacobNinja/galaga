@@ -46,10 +46,15 @@
          (fill-square x y projectile-cell-color)))
      (recur))))
 
+(defn- make-odd [num]
+  (if (= (mod num 2) 0)
+    (dec num)
+    num))
+
 (defn init [draw-chan]
   (set! (.-width canvas) (- (.-innerWidth js/window) cell-size))
   (set! (.-height canvas) (- (.-innerHeight js/window) cell-size))
   (draw-loop draw-chan)
   (let [height (-> (/ (.-height canvas) cell-size) .toFixed int)
         width (-> (/ (.-width canvas) cell-size) .toFixed int)]
-    {:dimensions [height width]}))
+    {:dimensions (map make-odd [height width])}))

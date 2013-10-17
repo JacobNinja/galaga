@@ -13,8 +13,8 @@
 (def valid-directions (set [key-codes/LEFT key-codes/RIGHT]))
 (def valid-input (into #{} (cons key-codes/SPACE valid-directions)))
 
-(def direction-cycle (cycle [:left :left :left :left :left nil 
-                             :right :right :right :right :right nil]))
+(def game-width 10)
+(def direction-cycle (cycle (mapcat #(conj (vec (repeatedly game-width (partial identity %))) nil) [:left :right])))
 
 (defn- keyboard-listen []
   (event/listen keyboard "key" 
@@ -46,7 +46,7 @@
                  (map (fn [[x y]] [x (dec y)]) (env :projectiles)))))
 
 (defn- generate-enemies [center rows per-row]
-  (let [offset (/ per-row 2)]
+  (let [offset (dec (/ (* rows per-row) 2))]
     (mapcat 
      #(map (fn [column] 
              [(+ center (- (* column 2) offset)) %]) 
@@ -70,11 +70,11 @@
       env)))
 
 (defn init-env [env]
-  (let [[height width] (env :dimensions)
+  (let [[height width] (map #(-> % .toFixed int) (env :dimensions))
         center (-> (/ width 2) .toFixed int)]
     (merge env {:player [[center (dec height)]]
                 :enemies (generate-enemies center 2 4)
-                :enemy-cycle 0})))
+                :enemy-cycle 5})))
 
 (defn game-loop [draw env]
   (go
@@ -89,7 +89,7 @@
                          adjust-projectile-coords
                          adjust-enemies)]
        (>! draw next-env)
-       (<! (timeout 500))
+       (<! (timeout 200))
        (recur next-env)))))
 
 (defn ^:export init []

@@ -9,6 +9,7 @@
 (def cell-size 30)
 (def empty-cell-color "#eee")
 (def player-cell-color "666")
+(def enemy-cell-color "333")
 (def border-color "#cdcdcd")
 (def projectile-cell-color "#aaa")
 
@@ -39,6 +40,8 @@
        (fill-empty env)
        (doseq [[x y] (env :player)]
          (fill-square x y player-cell-color))
+       (doseq [[x y] (env :enemies)]
+         (fill-square x y enemy-cell-color))
        (doseq [[x y] (env :projectiles)]
          (fill-square x y projectile-cell-color)))
      (recur))))

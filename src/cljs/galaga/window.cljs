@@ -13,6 +13,11 @@
 (def border-color "#cdcdcd")
 (def projectile-cell-color "#aaa")
 
+(defn- make-odd [num]
+  (if (= (mod num 2) 0)
+    (dec num)
+    num))
+
 (defn- fill-square [x y color]
   (set! (.-fillStyle context) color)
   (set! (.-strokeStyle context) border-color)
@@ -38,18 +43,13 @@
    (loop []
      (let [env (<! draw)]
        (fill-empty env)
-       (doseq [[x y] (env :player)]
+       (let [[x y] (env :player)]
          (fill-square x y player-cell-color))
-       (doseq [[x y] (env :enemies)]
+       (doseq [[x y] (map :coords (env :enemies))]
          (fill-square x y enemy-cell-color))
        (doseq [[x y] (env :projectiles)]
          (fill-square x y projectile-cell-color)))
      (recur))))
-
-(defn- make-odd [num]
-  (if (= (mod num 2) 0)
-    (dec num)
-    num))
 
 (defn init [draw-chan]
   (set! (.-width canvas) (- (.-innerWidth js/window) cell-size))

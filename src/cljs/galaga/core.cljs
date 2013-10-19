@@ -10,34 +10,56 @@
 
 (def keyboard (goog.events.KeyHandler. js/document))
 (def keyboard-chan (chan 1))
-(def valid-directions (set [key-codes/LEFT key-codes/RIGHT]))
-(def valid-input (into #{} (cons key-codes/SPACE valid-directions)))
+(def valid-directions {key-codes/LEFT :left
+                       key-codes/RIGHT :right})
+(def fire-key key-codes/SPACE)
+(def valid-input (assoc valid-directions fire-key fire-key))
+
+(defn circle [radius]
+  (mapcat #(repeatedly radius (partial identity %)) 
+          [:down-left :down-right :up-right :up-left]))
 
 (def game-width 10)
-(def direction-cycle (cycle (mapcat #(conj (vec (repeatedly game-width (partial identity %))) nil) [:left :right])))
+(def direction-cycle (cycle (mapcat 
+                      #(conj (vec (repeatedly game-width (partial identity %))) :down) 
+                      [:left :right])))
+
+(defn- adjust-coords-by-direction [direction [x y]]
+  (if direction 
+    (condp = direction
+      :left [(dec x) y]
+      :right [(inc x) y]
+      :up [x (dec y)]
+      :down [x (inc y)]
+      :up-left [(dec x) (dec y)]
+      :up-right [(inc x) (dec y)]
+      :down-left [(dec x) (inc y)]
+      :down-right [(inc x) (inc y)])
+    [x y]))
+
+(defrecord Enemy [coords movements]
+  Object
+  (tick [this]
+    (let [next-coords (adjust-coords-by-direction (first movements) coords)]
+      (merge this {:coords next-coords
+                   :movements (lazy-seq (rest movements))}))))
 
 (defn- keyboard-listen []
   (event/listen keyboard "key" 
                 (fn [k]
-                  (let [key-code (.-keyCode k)
-                        valid-key (valid-input key-code)]
-                    (when valid-key
-                      (go (>! keyboard-chan valid-key)))))))
+                  (let [key-code (.-keyCode k)]
+                    (when (valid-input key-code)
+                      (go (>! keyboard-chan key-code)))))))
 
 (defn- adjust-direction [direction env]
   (assoc env :direction (valid-directions direction)))
 
 (defn- adjust-player-coords [env]
-  (let [[x y] (first (env :player))]
-    (assoc env :player (cons (cond
-                              (= key-codes/LEFT (env :direction)) [(dec x) y]
-                              (= key-codes/RIGHT (env :direction)) [(inc x) y]
-                              :else [x y])
-                             (rest (env :player))))))
-
+  (assoc env :player (adjust-coords-by-direction (env :direction) (env :player))))
+  
 (defn- fire [keyboard-input env]
-  (if (= keyboard-input key-codes/SPACE)
-    (assoc env :projectiles (cons (first (env :player)) (env :projectiles)))
+  (if (= keyboard-input fire-key)
+    (assoc env :projectiles (cons (env :player) (env :projectiles)))
     env))
 
 (defn- adjust-projectile-coords [env]
@@ -45,7 +67,7 @@
          (filter (fn [[x y]] (>= y 0)) 
                  (map (fn [[x y]] [x (dec y)]) (env :projectiles)))))
 
-(defn- generate-enemies [center rows per-row]
+(defn- generate-enemy-coords [center rows per-row]
   (let [offset (dec (/ (* rows per-row) 2))]
     (mapcat 
      #(map (fn [column] 
@@ -54,27 +76,23 @@
      (range rows))))
 
 (defn adjust-enemies [env]
-  (let [direction (nth direction-cycle (env :enemy-cycle))]
-    (merge env {:enemies 
-                (map (fn [[x y]]
-                       (cond
-                        (= direction :left) [(dec x) y]
-                        (= direction :right) [(inc x) y]
-                        :else [x (inc y)])) (env :enemies))
-                :enemy-cycle (inc (env :enemy-cycle))})))
+ (assoc env :enemies (map #(-> % .tick) (env :enemies))))
 
 (defn- collision-check [env]
-  (let [collisions (intersection (set (env :enemies)) (set (env :projectiles)))]
-    (if-not (empty? collisions)
-      (assoc env :enemies (remove collisions (env :enemies)))
-      env)))
+ (let [collisions (intersection (set (map :coords (env :enemies))) (set (env :projectiles)))]
+   (if-not (empty? collisions)
+     (assoc env :enemies (remove #(collisions (:coords %)) (env :enemies)))
+     env)))
 
 (defn init-env [env]
-  (let [[height width] (map #(-> % .toFixed int) (env :dimensions))
-        center (-> (/ width 2) .toFixed int)]
-    (merge env {:player [[center (dec height)]]
-                :enemies (generate-enemies center 2 4)
-                :enemy-cycle 5})))
+ (let [[height width] (env :dimensions)
+       center (-> (/ width 2) .toFixed int)
+       offset (/ game-width 2)]
+   (merge env {:player [center (dec height)]
+               :enemies (map 
+                         #(->Enemy % (concat (circle (/ height 4)) 
+                                             (drop offset direction-cycle)))
+                         (generate-enemy-coords center 2 4))})))
 
 (defn game-loop [draw env]
   (go
